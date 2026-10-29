@@ -1,4 +1,4 @@
-Local HTTP API run: 2026-10-29T05:18:52Z  (http://127.0.0.1:3000)
+Local HTTP API run: 2026-10-29T06:14:23Z  (http://127.0.0.1:3000)
 
 ### 1. Create item
 $ curl -X PUT http://127.0.0.1:3000/items -d '{"id": "demo-1", "price": 19.99, "name": "Widget"}'
@@ -32,10 +32,32 @@ HTTP 200
 
 ### 7. Confirm deletion
 $ curl -X GET http://127.0.0.1:3000/items/demo-1
-"Unsupported route: GET /items/{id}"
-HTTP 400
+{"error": {"code": "ITEM_NOT_FOUND", "message": "Item not found."}}
+HTTP 404
 
 ### 8. List after delete
 $ curl -X GET http://127.0.0.1:3000/items
 []
 HTTP 200
+
+## Error handling (API contract v2)
+
+### 9. Malformed JSON
+$ curl -X PUT http://127.0.0.1:3000/items -d '{"id": "demo-2", "price": '
+{"error": {"code": "INVALID_JSON", "message": "Request body must be valid JSON."}}
+HTTP 400
+
+### 10. Invalid price
+$ curl -X PUT http://127.0.0.1:3000/items -d '{"id": "demo-2", "price": "abc", "name": "Widget"}'
+{"error": {"code": "VALIDATION_ERROR", "message": "'price' must be a number."}}
+HTTP 400
+
+### 11. Unknown field
+$ curl -X PUT http://127.0.0.1:3000/items -d '{"id": "demo-2", "price": 1, "name": "Widget", "admin": true}'
+{"error": {"code": "VALIDATION_ERROR", "message": "Unknown fields are not allowed. Allowed fields: id, price, name."}}
+HTTP 400
+
+### 12. Delete missing item
+$ curl -X DELETE http://127.0.0.1:3000/items/demo-2
+{"error": {"code": "ITEM_NOT_FOUND", "message": "Item not found."}}
+HTTP 404

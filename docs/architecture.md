@@ -36,7 +36,7 @@ host:   tests / table setup ──▶ 127.0.0.1:8000 (published to localhost onl
 | **Handler / service / repository split** | Business logic is testable without Lambda events or AWS | Single file: simpler, but tests would have to build Lambda events and mock boto3 |
 | **API throttling** (5 req/s, burst 10) | Limits cost if the public endpoint is abused | WAF: per-IP rules, but it costs extra |
 | **14-day log retention**, explicit log group | Logs don't build up forever; the group is deleted with the stack | Default: logs kept forever, group left behind |
-| **x86_64, 128 MB, 3 s timeout** | Same settings as the deployed function | arm64 is about 20% cheaper per GB-second, a possible later change |
+| **x86_64, 128 MB, 6 s timeout** | Same as the deployed function, except the timeout (3 s → 6 s, so a failing DynamoDB call returns a 503; see ADR 0001) | arm64 is about 20% cheaper per GB-second, a possible later change |
 | **No runtime dependencies** | boto3 is included in the Lambda Python runtime | Pinning boto3 in the package: a fixed version, but a larger package |
 | **DynamoDB Local + `sam local start-api`** for integration tests | Runs the real handler in the real Lambda runtime image against a real DynamoDB engine, all for free | LocalStack: emulates API Gateway too, but it's a larger dependency and some features are paid; moto alone doesn't exercise HTTP or the container |
 | **`DYNAMODB_ENDPOINT_URL` declared empty in the template** | `sam local --env-vars` can only override variables the template declares; an empty value keeps boto3's normal endpoint in AWS | A separate local template: two templates that can drift apart |
@@ -52,17 +52,18 @@ Behavior compared with `baseline/lambda_function.py` and kept the same:
 
 `tests/test_baseline_equivalence.py` sends the same 17 events to both versions and requires identical results.
 
-## Known baseline behaviors
+## API contract
 
-Kept for compatibility. Changing them changes the API, so they're planned as a separate milestone:
+Success responses keep the original shapes; errors follow contract v2. See [api-contract.md](api-contract.md) for the v1 → v2 comparison and [adr/0001-api-error-contract.md](adr/0001-api-error-contract.md) for the decision.
 
-- `GET /items/{id}` returns a one-element **list**, and `GET /items` returns a list of one-element lists.
-- A missing item returns **400** `"Unsupported route: GET /items/{id}"`, not 404.
-- Missing fields in a `PUT` body return 400 with the same "Unsupported route" message.
-- Invalid JSON, a non-numeric `price` or a non-string `id` raise an unhandled error, which API Gateway returns as **500**.
-- `DELETE` of an id that doesn't exist returns 200.
-- An unknown route reaching the function returns 200 `{}`. API Gateway only forwards the four defined routes, so this can't happen through the API.
-- `price` is stored as a DynamoDB number and returned as a float, so it isn't safe for money.
+Error handling by layer:
+
+| Layer | Responsibility |
+| --- | --- |
+| `handler.py` | Routing, request-body limits and JSON parsing, mapping errors to HTTP responses, the catch-all `500`, safe logging |
+| `service.py` | Item schema validation, not-found rules, success response shapes |
+| `repository.py` | DynamoDB calls with bounded timeouts and retries; temporary failures → `503`, conditional delete → `404`, everything else propagates (`500`) |
+| `errors.py` | Error classes, each with a status, a stable code and a safe default message |
 
 ## Limitations
 
@@ -71,6 +72,9 @@ Kept for compatibility. Changing them changes the API, so they're planned as a s
 - **Logging policy is broad:** SAM's `AWSLambdaBasicExecutionRole` allows creating log streams on any log group (`Resource: *`). A custom role could scope it to this function's log group.
 - **No point-in-time recovery or backups**, which would cost extra. `DeletionPolicy: Delete` means deleting the stack deletes the data.
 - **No API access logs or alarms** yet.
+- **No rate limiting per client:** only the stage-wide throttle (5 req/s, burst 10). One client can use up the whole budget.
+- **`price` is stored as a DynamoDB number but returned as a float,** so it isn't safe for exact money arithmetic.
+- **Validation is in application code:** API Gateway HTTP APIs have no request-schema validation, so invalid requests still invoke (and bill) the Lambda.
 - **Single Region, single stage.** No custom domain.
 
 ## Dependencies

@@ -6,7 +6,7 @@ A serverless CRUD API for items: **Amazon API Gateway HTTP API → AWS Lambda (P
 
 It started as the AWS tutorial "Build a CRUD API with Lambda and DynamoDB", which was built by hand in the console. This repository makes it reproducible from code, separates the handler from the business logic, scopes IAM to least privilege, and verifies the refactor against the original code.
 
-> **Status:** Milestone 2. The full CRUD workflow runs end to end on your machine: HTTP → `sam local start-api` → Lambda container → DynamoDB Local. Nothing has been deployed or tested in AWS. See [docs/verification.md](docs/verification.md).
+> **Status:** Milestone 4. API contract v2 with input validation and consistent JSON errors, verified end to end on your machine (HTTP → `sam local start-api` → Lambda container → DynamoDB Local) locally. Nothing has been deployed or tested in AWS. See [docs/verification.md](docs/verification.md).
 
 ## API
 
@@ -17,7 +17,7 @@ It started as the AWS tutorial "Build a CRUD API with Lambda and DynamoDB", whic
 | `GET /items` | List items (one Scan page) | `[[{...}], [{...}]]` |
 | `DELETE /items/{id}` | Delete an item | `"Deleted item 123"` |
 
-Response shapes deliberately match the original tutorial code, quirks included. They're listed in [docs/architecture.md](docs/architecture.md#known-baseline-behaviors).
+Success responses match the original tutorial code exactly, list-wrapped shapes included. Errors follow **API contract v2**: a JSON body `{"error": {"code": "...", "message": "..."}}` with `400`, `404`, `405`, `413`, `500` or `503`, and never a stack trace or internal detail. See [docs/api-contract.md](docs/api-contract.md) for the schema, the codes and what changed from the original, and [ADR 0001](docs/adr/0001-api-error-contract.md) for the reasoning.
 
 ## Project layout
 
@@ -82,11 +82,12 @@ curl ─▶ sam local start-api :3000 ─▶ Lambda container (python3.14) ─�
 
 ## Deploying
 
-Not part of Milestone 1. Deployment needs an explicit decision and AWS credentials. It would be `sam deploy --guided`, followed by smoke tests against the output `ApiEndpoint`. Before deploying, read [docs/architecture.md](docs/architecture.md#limitations): the API has no authentication.
+Not done yet. Deployment needs an explicit decision and AWS credentials. It would be `sam deploy --guided`, followed by smoke tests against the output `ApiEndpoint`. Before deploying, read [docs/architecture.md](docs/architecture.md#limitations): the API has no authentication.
 
 ## Roadmap
 
 1. Milestone 1: SAM template, refactor, baseline-equivalence tests, local build.
 2. Milestone 2: DynamoDB Local and `sam local start-api` with end-to-end integration tests.
-3. **Milestone 3 (this):** GitHub Actions CI running `make verify` and `make local-test` with no AWS credentials ([docs/ci.md](docs/ci.md)). Manual trigger until a spending budget is set.
-4. Later: input validation and proper 404s (an API change), pagination, authentication.
+3. Milestone 3: GitHub Actions CI running `make verify` and `make local-test` with no AWS credentials ([docs/ci.md](docs/ci.md)). Manual trigger until a spending budget is set.
+4. **Milestone 4 (this):** API reliability: contract v2, validation, 400/404/405/413/500/503 JSON errors, safe logging ([docs/api-contract.md](docs/api-contract.md)).
+5. Later: authentication, pagination, a deployed smoke test.

@@ -1,9 +1,15 @@
-"""The refactored handler must answer every request exactly like the baseline.
+"""Compatibility with the original tutorial Lambda (baseline/lambda_function.py).
+
+Milestone 1 proved the refactor was response-for-response identical to the
+baseline. Contract v2 (Milestone 4) intentionally changes error handling, so
+every scenario step must now either match the baseline exactly or match an
+explicitly listed v2 change. Any other difference fails.
 
 Both run against a fresh in-memory DynamoDB (moto); no AWS calls are made.
 """
 
 import importlib.util
+import json
 import pathlib
 
 from moto import mock_aws
@@ -37,6 +43,43 @@ SCENARIO = [
 ]
 
 
+def _error(status, code, message, extra_headers=None):
+    return ("response", {
+        "statusCode": status,
+        "headers": {"Content-Type": "application/json", **(extra_headers or {})},
+        "body": json.dumps({"error": {"code": code, "message": message}}),
+    })
+
+
+def _without_item(item_id):
+    """v2 rejects the string-priced 'abc' item, so later listings lack it."""
+    def transform(baseline_result):
+        kind, response = baseline_result
+        items = [entry for entry in json.loads(response["body"]) if entry[0]["id"] != item_id]
+        return kind, {**response, "body": json.dumps(items)}
+    return transform
+
+
+PRICE_NOT_NUMBER = "'price' must be a number."
+ID_RULE = "'id' must be 1-64 characters using letters, digits, '.', '_', '~' or '-'."
+
+# Intentional contract-v2 changes, by scenario step. Steps not listed must match the baseline.
+V2_CHANGES = {
+    2: _error(400, "VALIDATION_ERROR", PRICE_NOT_NUMBER),                 # v1 accepted a string price
+    5: _without_item("abc"),
+    6: _error(404, "ITEM_NOT_FOUND", "Item not found."),                  # v1: 400 "Unsupported route"
+    7: _error(400, "VALIDATION_ERROR", "Missing required field(s): name."),
+    8: _error(400, "INVALID_JSON", "Request body must be valid JSON."),   # v1: unhandled JSONDecodeError
+    9: _error(400, "VALIDATION_ERROR", PRICE_NOT_NUMBER),                 # v1: unhandled InvalidOperation
+    10: _error(400, "VALIDATION_ERROR", ID_RULE),                         # v1: unhandled ClientError
+    11: _error(400, "VALIDATION_ERROR", "Path parameter 'id' is required."),
+    13: _error(404, "ITEM_NOT_FOUND", "Item not found."),                 # v1: 200 for a missing id
+    14: _without_item("abc"),
+    15: _error(405, "METHOD_NOT_ALLOWED", "Method not allowed for this route.", {"Allow": "GET, PUT"}),  # v1: 200 {}
+    16: _error(404, "ROUTE_NOT_FOUND", "Route not found."),               # v1: unhandled KeyError
+}
+
+
 def _call(fn, event):
     try:
         return ("response", fn(event, None))
@@ -53,23 +96,33 @@ def _run_baseline():
         return [_call(module.lambda_handler, e) for e in SCENARIO]
 
 
-def _run_refactored():
+def _run_current():
     with mock_aws():
         table = create_items_table("items-under-test")
         handler.set_service(ItemService(DynamoDBItemRepository(table)))
         return [_call(handler.lambda_handler, e) for e in SCENARIO]
 
 
-def test_refactored_handler_matches_baseline():
+def test_current_handler_matches_baseline_except_documented_v2_changes():
     baseline = _run_baseline()
-    refactored = _run_refactored()
-    for i, (expected, actual) in enumerate(zip(baseline, refactored)):
+    current = _run_current()
+    assert len(baseline) == len(current) == len(SCENARIO)
+    for i, (base, actual) in enumerate(zip(baseline, current)):
+        change = V2_CHANGES.get(i)
+        expected = change(base) if callable(change) else (change or base)
         assert actual == expected, f"step {i} ({SCENARIO[i].get('routeKey')}) differs"
-    assert len(baseline) == len(refactored) == len(SCENARIO)
+
+
+def test_success_steps_are_unchanged():
+    unchanged = [i for i in range(len(SCENARIO)) if i not in V2_CHANGES]
+    baseline, current = _run_baseline(), _run_current()
+    for i in unchanged:
+        assert current[i] == baseline[i]
+    assert unchanged == [0, 1, 3, 4, 12]  # empty list, valid PUTs, GET, DELETE of an existing item
 
 
 def test_scenario_covers_documented_baseline_quirks():
-    """Pin the baseline behaviors the docs describe, so a change is noticed."""
+    """Pin the baseline (contract v1) behaviors, so a change in the evidence is noticed."""
     results = _run_baseline()
     assert results[4][1]["body"] == '[{"price": 12345.0, "id": "123", "name": "myitem"}]'
     assert results[6][1]["statusCode"] == 400  # missing item -> 400, not 404

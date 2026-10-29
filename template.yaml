@@ -42,7 +42,9 @@ Resources:
       Architectures:
         - x86_64
       MemorySize: 128
-      Timeout: 3
+      # Above the worst-case DynamoDB call (2 attempts x 1 s connect + 1 s read)
+      # so a failing dependency returns a 503 instead of timing out.
+      Timeout: 6
       LoggingConfig:
         LogFormat: Text
         LogGroup: !Ref ItemsFunctionLogGroup

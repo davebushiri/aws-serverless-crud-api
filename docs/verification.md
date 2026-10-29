@@ -2,7 +2,26 @@
 
 Local verification and AWS verification are tracked separately. **Nothing in this repository has been deployed, and no step below authenticates to AWS.**
 
-## Milestone 2: local end-to-end (verified)
+## Milestone 4: API contract v2 (verified locally)
+
+Environment as in Milestone 2 (Docker 29.9.2, Python 3.14.6, SAM CLI 1.170.0, DynamoDB Local 3.3.2, synthetic credentials). Contract: [api-contract.md](api-contract.md); decision: [ADR 0001](adr/0001-api-error-contract.md).
+
+| Check | How | Result |
+| --- | --- | --- |
+| Unit tests | `make test` | **77 passed**: handler contract (status, error format, 413, base64, `NaN`, deep nesting, 405 + `Allow`), DynamoDB error classification, validation rules, safe logging |
+| Compatibility with the original code | `tests/test_baseline_equivalence.py`: the same 17 requests run against `baseline/` and the current code | Every step matches the original, or matches its listed v2 change exactly; the 5 success steps are unchanged |
+| Original (v1) behavior still recorded | Same file: the v1 quirks test, unchanged from Milestone 1 | Pass |
+| Integration tests (local HTTP API) | `make local-test` → [evidence/integration-test-run.txt](evidence/integration-test-run.txt) | **19 passed**: CRUD workflow; 404 for missing items; 400 for 4 malformed bodies and 6 invalid items; invalid path id; 413; platform response for unknown routes; generic 500 for a missing table; **503 with DynamoDB Local stopped**, then recovery |
+| No leaks | Every integration response is checked: an `errorType`/`stackTrace` payload fails immediately, and error bodies must not contain `Traceback`, `botocore`, `ResourceNotFound`, the table name, `dynamodb`, `/var/task` or `arn:aws` | Pass |
+| Leak check can fail | Temporarily disabled the handler's catch-all `500` | The integration suite failed with `unhandled Lambda error leaked to the client (HTTP 200): ResourceNotFoundException`; change reverted |
+| CRUD and errors over HTTP | `scripts/demo_requests.sh` → [evidence/local-http-run.txt](evidence/local-http-run.txt) | Steps 1–6 unchanged from v1; deleted item → `404 ITEM_NOT_FOUND`; malformed JSON, invalid price, unknown field → `400`; deleting a missing item → `404` |
+| 503 timing | GET with DynamoDB Local stopped | `503` in 0.13 s (connection refused); bounded worst case is 2 × (1 s + 1 s), under the 6 s Lambda timeout |
+| Safe logging | SAM log after a request with a private name | One line per request: route, request ID, status (plus error code and internal detail for failures); request body and headers absent |
+| Template | `make verify` | cfn-lint clean, `sam validate --lint` valid, `sam build` succeeded |
+
+**Local vs. AWS for this milestone:** responses the Lambda returns are the same in both (the Lambda builds the full proxy response). Requests that never reach the Lambda (unknown method/path) get `403` from sam local and, per AWS docs, `404` from API Gateway; neither uses the v2 format. Throttling (`429` from API Gateway) isn't emulated locally. DynamoDB throttling (`503`) is covered only by unit tests, because DynamoDB Local doesn't throttle.
+
+## Milestone 2: local end-to-end (verified; historical, contract v1)
 
 Environment: Linux x86_64, Docker 29.9.2, Python 3.14.6, SAM CLI 1.170.0, `amazon/dynamodb-local:3.3.2`, `public.ecr.aws/lambda/python:3.14-x86_64`. Credentials were synthetic (`local`/`local`), with `~/.aws` hidden.
 
@@ -22,7 +41,9 @@ Environment: Linux x86_64, Docker 29.9.2, Python 3.14.6, SAM CLI 1.170.0, `amazo
 | Cleanup | `make local-down`, then `docker ps -a` and `docker network ls` | No containers or network left |
 | Milestone 1 checks still pass | `make verify` | 17 unit tests passed; lint, validate and build OK |
 
-### How the integration tests classify responses
+### How the integration tests classified responses (Milestone 3, contract v1)
+
+Superseded in Milestone 4: the legacy crash tests were replaced by exact v2 error assertions, and any crash payload now fails a test.
 
 | Class | Tests | What passes |
 | --- | --- | --- |

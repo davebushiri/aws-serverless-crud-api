@@ -25,3 +25,9 @@ step "5. Retrieve updated"     GET    /items/demo-1
 step "6. Delete item"          DELETE /items/demo-1
 step "7. Confirm deletion"     GET    /items/demo-1
 step "8. List after delete"    GET    /items
+
+echo; echo "## Error handling (API contract v2)"
+step "9. Malformed JSON"       PUT    /items        '{"id": "demo-2", "price": '
+step "10. Invalid price"       PUT    /items        '{"id": "demo-2", "price": "abc", "name": "Widget"}'
+step "11. Unknown field"       PUT    /items        '{"id": "demo-2", "price": 1, "name": "Widget", "admin": true}'
+step "12. Delete missing item" DELETE /items/demo-2

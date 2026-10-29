@@ -22,6 +22,20 @@ Environment: Linux x86_64, Docker 29.9.2, Python 3.14.6, SAM CLI 1.170.0, `amazo
 | Cleanup | `make local-down`, then `docker ps -a` and `docker network ls` | No containers or network left |
 | Milestone 1 checks still pass | `make verify` | 17 unit tests passed; lint, validate and build OK |
 
+### How the integration tests classify responses
+
+| Class | Tests | What passes |
+| --- | --- | --- |
+| Correct application responses | CRUD workflow, seeded read, empty-table isolation, delete of a missing id | Exact status and body only |
+| Expected error responses (legacy wording) | Missing item, missing `PUT` field | Exact `400` and the baseline's "Unsupported route" message |
+| Known crash (legacy defect + emulator behavior) | Malformed JSON, non-numeric price, missing table | Only the two exact crash shapes: sam local's `200` with exactly `errorMessage`/`errorType`/`requestId`/`stackTrace` and the expected `errorType`, or API Gateway's `500 {"message":"Internal Server Error"}`. Each one raises a `LegacyUnhandledError` warning, so it shows in the run output; it's never counted as correct behavior. The test also checks that nothing was written. |
+| Request never reaches the Lambda | `PATCH /items` | Exactly `403 Missing Authentication Token` (sam local) or `404 Not Found` (API Gateway) |
+| Anything else | | Fails the test |
+
+A deliberate check confirmed the crash assertion rejects a `200` that only claims an `errorType`, a success-looking `200`, a `502`, a `500` with another body, and a real crash with the wrong `errorType`.
+
+**To strengthen in the error-handling milestone:** the three `*_crashes_function_legacy` tests become handled JSON `400` (malformed JSON, bad price) and `500`/`503` (database failure) with no stack trace, and the `LegacyUnhandledError` helper is removed. The two "Unsupported route" 400s become a `404` (missing item) and a `400` with a real message (missing field).
+
 ### Where the local emulator differs from API Gateway
 
 Recorded during this milestone. The tests accept both behaviors.
@@ -52,7 +66,10 @@ Recorded during this milestone. The tests accept both behaviors.
 - The key schema of the original console-created table (`id`, String) came from the tutorial, not from AWS.
 - An arm64 host (Apple Silicon) wasn't tested. The function targets x86_64, so SAM runs it under emulation there, which works but is slower.
 
+## Milestone 3: CI
+
+See [ci.md](ci.md). Results of the GitHub-hosted run are recorded there once it has run.
+
 ## Planned
 
-- CI: GitHub Actions running `make verify` and `make local-test` (both work without AWS credentials).
 - Only with approval: deploy a test stack in the project's Region, run `scripts/demo_requests.sh` against `ApiEndpoint`, record the results here, then delete the stack.

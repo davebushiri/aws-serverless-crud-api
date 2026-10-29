@@ -10,6 +10,7 @@ import json
 import os
 import urllib.error
 import urllib.request
+import warnings
 
 import pytest
 
@@ -36,16 +37,33 @@ def call(method, path, body=None):
         return status, raw
 
 
-def assert_function_error(status, body, error_type):
-    """The Lambda raised `error_type` instead of returning a response.
+class LegacyUnhandledError(UserWarning):
+    """A request crashed the function. Kept as legacy behavior, not a success."""
 
-    API Gateway turns this into HTTP 500. `sam local start-api` instead returns
-    HTTP 200 with the Lambda error payload, so accept either form.
+
+# Exact crash shapes. sam local returns the raw Lambda error payload (with a
+# stack trace) as HTTP 200; API Gateway returns this fixed 500 body instead.
+SAM_LOCAL_CRASH_KEYS = {"errorMessage", "errorType", "requestId", "stackTrace"}
+API_GATEWAY_CRASH = (500, {"message": "Internal Server Error"})
+
+
+def assert_unhandled_function_error(status, body, error_type):
+    """Assert the function crashed with `error_type`, in one of the two known shapes.
+
+    This documents a legacy defect: the baseline handler lets these exceptions
+    escape. It is never treated as a correct response. Any other status or body
+    fails the test. The error-handling milestone replaces these with handled
+    JSON 4xx/5xx responses and removes this helper.
     """
-    if status >= 500:
-        return
-    assert isinstance(body, dict), f"expected a Lambda error payload, got HTTP {status}: {body!r}"
-    assert body.get("errorType") == error_type
+    if (status, body) == API_GATEWAY_CRASH:
+        crash_form = "API Gateway 500"
+    else:
+        assert status == 200 and isinstance(body, dict) and set(body) == SAM_LOCAL_CRASH_KEYS, (
+            f"unexpected response, neither a handled response nor a known crash shape: HTTP {status} {body!r}"
+        )
+        assert body["errorType"] == error_type, f"crashed with {body['errorType']}, expected {error_type}"
+        crash_form = "sam local HTTP 200 + stack trace"
+    warnings.warn(f"{error_type}: unhandled in the function ({crash_form})", LegacyUnhandledError, stacklevel=2)
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -101,15 +119,27 @@ def test_put_missing_field_returns_400():
     assert call("GET", "/items") == (200, [])
 
 
-def test_put_malformed_json_fails_in_function():
+# Legacy defect: these requests crash the function instead of returning an
+# error response. Strengthen to handled JSON 400/500 in the error-handling milestone.
+
+def test_put_malformed_json_crashes_function_legacy():
     status, body = call("PUT", "/items", "{not json")
-    assert_function_error(status, body, "JSONDecodeError")
-
-
-def test_put_non_numeric_price_fails_in_function():
-    status, body = call("PUT", "/items", {"id": "p", "price": "abc", "name": "n"})
-    assert_function_error(status, body, "InvalidOperation")
+    assert_unhandled_function_error(status, body, "JSONDecodeError")
     assert call("GET", "/items") == (200, [])
+
+
+def test_put_non_numeric_price_crashes_function_legacy():
+    status, body = call("PUT", "/items", {"id": "p", "price": "abc", "name": "n"})
+    assert_unhandled_function_error(status, body, "InvalidOperation")
+    assert call("GET", "/items") == (200, [])
+
+
+def test_database_failure_crashes_function_legacy():
+    local_table.delete_table()
+    status, body = call("GET", "/items")
+    assert_unhandled_function_error(status, body, "ResourceNotFoundException")
+    status, body = call("PUT", "/items", {"id": "a", "price": 1, "name": "n"})
+    assert_unhandled_function_error(status, body, "ResourceNotFoundException")
 
 
 def test_delete_missing_item_returns_200():
@@ -117,14 +147,8 @@ def test_delete_missing_item_returns_200():
 
 
 def test_undefined_route_is_not_routed_to_lambda():
-    status, _ = call("PATCH", "/items")
-    # 403 from sam local, 404 from API Gateway HTTP API.
-    assert status in (403, 404)
-
-
-def test_database_failure_missing_table():
-    local_table.delete_table()
-    status, body = call("GET", "/items")
-    assert_function_error(status, body, "ResourceNotFoundException")
-    status, body = call("PUT", "/items", {"id": "a", "price": 1, "name": "n"})
-    assert_function_error(status, body, "ResourceNotFoundException")
+    # Answered by the API layer before Lambda; the two platforms differ.
+    assert call("PATCH", "/items") in [
+        (403, {"message": "Missing Authentication Token"}),  # sam local start-api
+        (404, {"message": "Not Found"}),                      # API Gateway HTTP API
+    ]

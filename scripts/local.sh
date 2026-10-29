@@ -88,8 +88,7 @@ down() {
     rm -f "$PID_FILE"
   fi
   # Warm Lambda containers left behind if SAM was killed abruptly.
-  leftovers=$(docker ps -aq --filter "network=$NETWORK" 2>/dev/null || true)
-  [ -n "$leftovers" ] && docker rm -f $leftovers >/dev/null
+  docker ps -aq --filter "network=$NETWORK" 2>/dev/null | xargs -r docker rm -f >/dev/null || true
   log "Removing $DDB_CONTAINER and network $NETWORK"
   docker rm -f "$DDB_CONTAINER" >/dev/null 2>&1 || true
   docker network rm "$NETWORK" >/dev/null 2>&1 || true

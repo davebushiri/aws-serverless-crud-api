@@ -7,6 +7,7 @@ case "$API" in http://127.0.0.1:*|http://localhost:*) ;; *) echo "Refusing non-l
 
 step() {
   local title=$1 method=$2 path=$3 body=${4:-}
+  # shellcheck disable=SC2016  # $body does expand: the single quotes are literal text inside "..."
   printf '\n### %s\n$ curl -X %s %s%s%s\n' "$title" "$method" "$API" "$path" "${body:+ -d '$body'}"
   if [ -n "$body" ]; then
     curl -s -X "$method" "$API$path" -H 'Content-Type: application/json' --data "$body" -w '\nHTTP %{http_code}\n'

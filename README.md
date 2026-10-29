@@ -85,6 +85,6 @@ Not part of Milestone 1. Deployment needs an explicit decision and AWS credentia
 ## Roadmap
 
 1. Milestone 1: SAM template, refactor, baseline-equivalence tests, local build.
-2. **Milestone 2 (this):** DynamoDB Local and `sam local start-api` with end-to-end integration tests.
-3. Next: GitHub Actions running `make verify` and `make local-test` on every push. It needs no AWS credentials.
+2. Milestone 2: DynamoDB Local and `sam local start-api` with end-to-end integration tests.
+3. **Milestone 3 (this):** GitHub Actions CI running `make verify` and `make local-test` with no AWS credentials ([docs/ci.md](docs/ci.md)). Manual trigger until a spending budget is set.
 4. Later: input validation and proper 404s (an API change), pagination, authentication.

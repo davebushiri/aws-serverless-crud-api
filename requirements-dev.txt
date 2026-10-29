@@ -1,6 +1,8 @@
 # Local development and CI tooling. None of these are deployed.
-aws-sam-cli>=1.170.0
-boto3>=1.43
-cfn-lint>=1.58
-moto[dynamodb]>=5.2
-pytest>=8
+# Top-level pins; the full resolved set with hashes is in requirements-dev.lock
+# (regenerate with `make lock` after changing this file).
+aws-sam-cli==1.170.0
+boto3==1.43.108
+cfn-lint==1.58.0
+moto[dynamodb]==5.2.5
+pytest==9.2.0

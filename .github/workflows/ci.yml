@@ -1,0 +1,93 @@
+# CI: install, validate, build and test the API on a clean runner, using only
+# local emulators (DynamoDB Local + sam local). No AWS credentials, no deployment.
+name: CI
+
+on:
+  workflow_dispatch:
+  # Enable once a GitHub Actions spending budget is confirmed (see docs/ci.md):
+  # push:
+  #   branches: [main]
+  # pull_request:
+  #   branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-and-test:
+    name: Verify and integration test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      # There are no AWS credentials in this workflow; also hide any AWS config
+      # files so no tool can find a profile. Local tests use synthetic keys only.
+      AWS_CONFIG_FILE: /dev/null
+      AWS_SHARED_CREDENTIALS_FILE: /dev/null
+      SAM_CLI_TELEMETRY: "0"
+      UV_PYTHON_PREFERENCE: only-system
+      REPORTS_DIR: reports
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: requirements-dev.lock
+
+      - name: Check Docker
+        run: |
+          docker version --format 'Docker client {{.Client.Version}}, server {{.Server.Version}}'
+          docker info --format 'Storage: {{.Driver}}, cgroup v{{.CgroupVersion}}'
+
+      - name: Install tools (locked, hash-verified)
+        run: make install
+
+      - name: Show tool versions and confirm no AWS credentials
+        run: |
+          .venv/bin/python --version
+          .venv/bin/sam --version
+          .venv/bin/cfn-lint --version
+          .venv/bin/python -c "import boto3; c = boto3.Session().get_credentials(); assert c is None, 'unexpected AWS credentials'; print('AWS credentials: none')"
+
+      - name: Unit tests, lint, validate, build (make verify)
+        run: make verify
+
+      - name: Local stack integration tests (make local-test)
+        run: make local-test
+
+      - name: Test summary
+        if: always()
+        run: python3 scripts/ci_summary.py reports/unit.xml reports/integration.xml >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test reports and SAM log
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-reports
+          path: |
+            reports/
+            .local/*.log
+          retention-days: 5
+          if-no-files-found: ignore
+
+      - name: Clean up containers, network and temporary files
+        if: always()
+        run: |
+          scripts/local.sh down || true
+          rm -rf .local .aws-sam reports
+          docker ps -a --format 'leftover container: {{.Names}}'
+          docker network ls --filter name=items-local-net --format 'leftover network: {{.Name}}'

@@ -2,6 +2,21 @@
 
 Local verification and AWS verification are tracked separately. **Nothing in this repository has been deployed, and no step below authenticates to AWS.**
 
+## Milestone 5: scoped execution role and final checks
+
+| Check | How | Result |
+| --- | --- | --- |
+| Default SAM role reviewed | Offline SAM transform of the Milestone 4 template | SAM-generated `ItemsFunctionRole` had `ManagedPolicyArns: [AWSLambdaBasicExecutionRole]` (log actions on `Resource: *`) next to the inline DynamoDB policy |
+| Explicit role | Offline transform of the current template | One role (`ItemsFunctionExecutionRole`), no managed policies: 4 DynamoDB actions on the table ARN, plus `CreateLogStream`/`PutLogEvents` on the dedicated log group's streams; function `Role` points to it; `LoggingConfig.LogGroup` is that group |
+| Lambda permissions for API Gateway | Same transform | One `AWS::Lambda::Permission` per route for `apigateway.amazonaws.com`, `SourceArn` limited to this API and the route's method and path |
+| Regression tests | `tests/test_template_iam.py` (2 tests, offline) | Pass; re-adding `Policies:` made the test fail with a second, SAM-generated role |
+| Unit tests | `make test` | **79 passed** (77 + 2 IAM template tests) |
+| Integration tests | `make local-test` | **19 passed** |
+| Template | `make lint validate build` | cfn-lint clean, valid, build succeeded |
+| Demo commands | Every command in [demo.md](demo.md), run as written | Outputs match the document |
+
+**Not verified:** that Lambda can write its logs with only these permissions in AWS. This follows from the AWS documentation for execution roles and custom log groups, but hasn't been observed in a deployment.
+
 ## Milestone 4: API contract v2 (verified locally)
 
 Environment as in Milestone 2 (Docker 29.9.2, Python 3.14.6, SAM CLI 1.170.0, DynamoDB Local 3.3.2, synthetic credentials). Contract: [api-contract.md](api-contract.md); decision: [ADR 0001](adr/0001-api-error-contract.md).
@@ -77,13 +92,13 @@ Recorded during this milestone. The tests accept both behaviors.
 | Refactor matches baseline: 17 events, moto | Pass; a deliberate one-character change made it fail as expected |
 | Service unit tests | Pass |
 | cfn-lint, `sam validate --lint`, `sam build` | Clean / valid / succeeded |
-| Generated IAM (offline transform) | Role assumable only by `lambda.amazonaws.com`; 4 DynamoDB actions on the table ARN, plus `AWSLambdaBasicExecutionRole` |
+| Generated IAM (offline transform) | Role assumable only by `lambda.amazonaws.com`; 4 DynamoDB actions on the table ARN, plus `AWSLambdaBasicExecutionRole` (replaced by a scoped role in Milestone 5) |
 
 ## Not verified (needs a real AWS deployment)
 
 - The stack creates successfully under the project's managed SCPs and service quotas.
 - Real API Gateway → Lambda integration, including the 500 and 404 behaviors above.
-- The scoped IAM policy is enough at runtime (no `AccessDenied`).
+- The scoped execution role is enough at runtime: no `AccessDenied` from DynamoDB, and logs arrive in the dedicated CloudWatch log group.
 - Throttling, log retention, the `ApiEndpoint` output and the generated table name.
 - Behavior differences between DynamoDB Local and the DynamoDB service (DynamoDB Local doesn't enforce IAM, throughput limits, or every validation rule).
 - The key schema of the original console-created table (`id`, String) came from the tutorial, not from AWS.

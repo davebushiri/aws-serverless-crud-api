@@ -24,6 +24,39 @@ Resources:
     Properties:
       RetentionInDays: 14
 
+  # Explicit execution role. Passing `Role` stops SAM from generating one with
+  # the AWSLambdaBasicExecutionRole managed policy (logs:* on Resource "*").
+  ItemsFunctionExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: items-function-least-privilege
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Only the DynamoDB actions the code calls, on this table only.
+              - Effect: Allow
+                Action:
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:Scan
+                Resource: !GetAtt ItemsTable.Arn
+              # Write logs to the dedicated log group only. The group is created
+              # by this template, so logs:CreateLogGroup is not needed.
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:${ItemsFunctionLogGroup}:log-stream:*
+
   ItemsApi:
     Type: AWS::Serverless::HttpApi
     Properties:
@@ -54,16 +87,7 @@ Resources:
           # Empty in AWS (boto3 uses the regional endpoint). Declared so that
           # `sam local --env-vars` can point it at DynamoDB Local.
           DYNAMODB_ENDPOINT_URL: ''
-      # Least privilege: only the actions the code calls, on this table only.
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - dynamodb:GetItem
-                - dynamodb:PutItem
-                - dynamodb:DeleteItem
-                - dynamodb:Scan
-              Resource: !GetAtt ItemsTable.Arn
+      Role: !GetAtt ItemsFunctionExecutionRole.Arn
       Events:
         ListItems:
           Type: HttpApi

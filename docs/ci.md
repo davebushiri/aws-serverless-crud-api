@@ -42,7 +42,11 @@ GitHub bills private-repository Actions usage per minute beyond the plan's inclu
 
 With a $0 stop-usage budget, runs stop once the included minutes are used up, instead of being billed.
 
-## Verified run
+## Verified runs
+
+Later runs: [40828145799](https://github.com/davebushiri/aws-serverless-crud-api/actions/runs/40828145799) (Milestone 4: 77 unit, 19 integration) and the Milestone 5 runs listed on the [workflow page](https://github.com/davebushiri/aws-serverless-crud-api/actions/workflows/ci.yml).
+
+First run, in detail (Milestone 3, contract v1):
 
 [Run 40825291736](https://github.com/davebushiri/aws-serverless-crud-api/actions/runs/40825291736): `workflow_dispatch` on commit `9e7d255`, **success**, job duration 72 s on `ubuntu-24.04`.
 

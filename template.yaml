@@ -1,0 +1,96 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Items CRUD API - HTTP API (API Gateway v2) + AWS Lambda (Python) + Amazon DynamoDB.
+
+Resources:
+  ItemsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  ItemsFunctionLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      RetentionInDays: 14
+
+  ItemsApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      # Caps request rate to protect the free-tier budget from abuse.
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 10
+        ThrottlingRateLimit: 5
+
+  ItemsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Items CRUD API handler
+      CodeUri: src/
+      Handler: items_api.handler.lambda_handler
+      Runtime: python3.14
+      Architectures:
+        - x86_64
+      MemorySize: 128
+      Timeout: 3
+      LoggingConfig:
+        LogFormat: Text
+        LogGroup: !Ref ItemsFunctionLogGroup
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref ItemsTable
+      # Least privilege: only the actions the code calls, on this table only.
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+                - dynamodb:Scan
+              Resource: !GetAtt ItemsTable.Arn
+      Events:
+        ListItems:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ItemsApi
+            Method: GET
+            Path: /items
+        GetItem:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ItemsApi
+            Method: GET
+            Path: /items/{id}
+        PutItem:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ItemsApi
+            Method: PUT
+            Path: /items
+        DeleteItem:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref ItemsApi
+            Method: DELETE
+            Path: /items/{id}
+
+Outputs:
+  ApiEndpoint:
+    Description: Base URL of the HTTP API ($default stage)
+    Value: !Sub https://${ItemsApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+  ItemsTableName:
+    Description: Generated DynamoDB table name
+    Value: !Ref ItemsTable
+  ItemsFunctionName:
+    Value: !Ref ItemsFunction

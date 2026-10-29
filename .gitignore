@@ -1,0 +1,10 @@
+.venv/
+.aws-sam/
+__pycache__/
+*.pyc
+.pytest_cache/
+.env
+.env.*
+samconfig.local.toml
+*.zip
+.DS_Store

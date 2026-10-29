@@ -1,0 +1,9 @@
+{
+  "version": "2.0",
+  "routeKey": "PUT /items",
+  "rawPath": "/items",
+  "headers": {"content-type": "application/json"},
+  "requestContext": {"http": {"method": "PUT", "path": "/items"}},
+  "body": "{\"id\": \"123\", \"price\": 12345, \"name\": \"myitem\"}",
+  "isBase64Encoded": false
+}

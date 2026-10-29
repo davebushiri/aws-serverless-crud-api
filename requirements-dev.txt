@@ -1,0 +1,6 @@
+# Local development and CI tooling. None of these are deployed.
+aws-sam-cli>=1.170.0
+boto3>=1.43
+cfn-lint>=1.58
+moto[dynamodb]>=5.2
+pytest>=8

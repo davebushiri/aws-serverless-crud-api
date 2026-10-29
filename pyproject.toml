@@ -1,0 +1,10 @@
+[project]
+name = "items-crud-api"
+version = "0.1.0"
+description = "Serverless items CRUD API: API Gateway HTTP API, AWS Lambda (Python) and DynamoDB, defined with AWS SAM."
+requires-python = ">=3.14"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+testpaths = ["tests"]
+addopts = "-ra"

@@ -1,0 +1,2 @@
+# Runtime dependencies bundled by `sam build`.
+# Intentionally empty: boto3 is provided by the Lambda Python runtime.

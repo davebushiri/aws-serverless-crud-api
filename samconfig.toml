@@ -1,0 +1,13 @@
+# Local build and validation settings only.
+# No deploy section on purpose: deployment needs an explicit, reviewed step.
+version = 0.1
+
+[default.global.parameters]
+stack_name = "items-crud-api"
+
+[default.build.parameters]
+cached = true
+parallel = true
+
+[default.validate.parameters]
+lint = true

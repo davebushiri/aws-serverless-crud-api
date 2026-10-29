@@ -1,0 +1,9 @@
+{
+  "version": "2.0",
+  "routeKey": "GET /items/{id}",
+  "rawPath": "/items/123",
+  "headers": {},
+  "requestContext": {"http": {"method": "GET", "path": "/items/123"}},
+  "pathParameters": {"id": "123"},
+  "isBase64Encoded": false
+}

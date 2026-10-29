@@ -1,0 +1,41 @@
+Local HTTP API run: 2026-10-29T05:18:52Z  (http://127.0.0.1:3000)
+
+### 1. Create item
+$ curl -X PUT http://127.0.0.1:3000/items -d '{"id": "demo-1", "price": 19.99, "name": "Widget"}'
+"Put item demo-1"
+HTTP 200
+
+### 2. Retrieve item
+$ curl -X GET http://127.0.0.1:3000/items/demo-1
+[{"price": 19.99, "id": "demo-1", "name": "Widget"}]
+HTTP 200
+
+### 3. Retrieve all items
+$ curl -X GET http://127.0.0.1:3000/items
+[[{"price": 19.99, "id": "demo-1", "name": "Widget"}]]
+HTTP 200
+
+### 4. Update item
+$ curl -X PUT http://127.0.0.1:3000/items -d '{"id": "demo-1", "price": 24.5, "name": "Widget Pro"}'
+"Put item demo-1"
+HTTP 200
+
+### 5. Retrieve updated
+$ curl -X GET http://127.0.0.1:3000/items/demo-1
+[{"price": 24.5, "id": "demo-1", "name": "Widget Pro"}]
+HTTP 200
+
+### 6. Delete item
+$ curl -X DELETE http://127.0.0.1:3000/items/demo-1
+"Deleted item demo-1"
+HTTP 200
+
+### 7. Confirm deletion
+$ curl -X GET http://127.0.0.1:3000/items/demo-1
+"Unsupported route: GET /items/{id}"
+HTTP 400
+
+### 8. List after delete
+$ curl -X GET http://127.0.0.1:3000/items
+[]
+HTTP 200

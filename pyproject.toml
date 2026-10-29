@@ -5,6 +5,8 @@ description = "Serverless items CRUD API: API Gateway HTTP API, AWS Lambda (Pyth
 requires-python = ">=3.14"
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "tests"]
+pythonpath = ["src", "tests", "scripts"]
 testpaths = ["tests"]
-addopts = "-ra"
+# Integration tests need the local stack (`make local-up`); run them with `make test-integration`.
+addopts = "-ra -m 'not integration'"
+markers = ["integration: needs DynamoDB Local and sam local start-api running"]

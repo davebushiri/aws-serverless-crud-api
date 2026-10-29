@@ -8,3 +8,12 @@ __pycache__/
 samconfig.local.toml
 *.zip
 .DS_Store
+
+# Local stack state (pid files, SAM logs)
+.local/
+
+# Never commit credentials
+.aws/
+credentials
+*.pem
+*.key

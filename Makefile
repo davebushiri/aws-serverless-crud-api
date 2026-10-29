@@ -8,7 +8,8 @@ OFFLINE := env -u AWS_PROFILE -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u A
 	AWS_CONFIG_FILE=/dev/null AWS_SHARED_CREDENTIALS_FILE=/dev/null \
 	AWS_REGION=us-east-1
 
-.PHONY: install test lint validate build verify clean
+.PHONY: install test lint validate build verify clean \
+	local-up local-down local-status test-integration local-test
 
 install:
 	uv venv --python 3.14 $(VENV)
@@ -28,5 +29,22 @@ build:
 
 verify: test lint validate build
 
-clean:
-	rm -rf .aws-sam .pytest_cache
+# Local stack (needs Docker): DynamoDB Local + sam local start-api on :3000.
+local-up:
+	scripts/local.sh up
+
+local-down:
+	scripts/local.sh down
+
+local-status:
+	scripts/local.sh status
+
+test-integration:
+	$(OFFLINE) $(BIN)/python -m pytest -m integration -v
+
+# One-shot: start the stack, run integration tests, always tear down.
+local-test:
+	scripts/local.sh up && { $(MAKE) --no-print-directory test-integration; status=$$?; scripts/local.sh down; exit $$status; }
+
+clean: local-down
+	rm -rf .aws-sam .pytest_cache .local

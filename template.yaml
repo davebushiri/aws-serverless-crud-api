@@ -49,6 +49,9 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref ItemsTable
+          # Empty in AWS (boto3 uses the regional endpoint). Declared so that
+          # `sam local --env-vars` can point it at DynamoDB Local.
+          DYNAMODB_ENDPOINT_URL: ''
       # Least privilege: only the actions the code calls, on this table only.
       Policies:
         - Statement:

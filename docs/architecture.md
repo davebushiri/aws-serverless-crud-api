@@ -10,6 +10,20 @@ Client ──HTTPS──▶ API Gateway HTTP API ($default stage, throttled)
                   Amazon DynamoDB  on-demand table, partition key id (String)
 ```
 
+### Local development stack
+
+```
+host:   curl / pytest ──▶ sam local start-api 127.0.0.1:3000
+                                │ invokes
+docker network items-local-net: Lambda container (public.ecr.aws/lambda/python:3.14)
+                                │ DYNAMODB_ENDPOINT_URL=http://items-dynamodb-local:8000
+                                ▼
+                          items-dynamodb-local (amazon/dynamodb-local:3.3.2, -inMemory -sharedDb)
+host:   tests / table setup ──▶ 127.0.0.1:8000 (published to localhost only)
+```
+
+`-sharedDb` makes DynamoDB Local ignore the credentials and Region in a request, so the Lambda container and the host tests see the same table. `--warm-containers EAGER` keeps one Lambda container running for the whole session instead of starting one per request.
+
 ## Decisions
 
 | Decision | Why | Alternative considered |
@@ -24,6 +38,8 @@ Client ──HTTPS──▶ API Gateway HTTP API ($default stage, throttled)
 | **14-day log retention**, explicit log group | Logs don't build up forever; the group is deleted with the stack | Default: logs kept forever, group left behind |
 | **x86_64, 128 MB, 3 s timeout** | Same settings as the deployed function | arm64 is about 20% cheaper per GB-second, a possible later change |
 | **No runtime dependencies** | boto3 is included in the Lambda Python runtime | Pinning boto3 in the package: a fixed version, but a larger package |
+| **DynamoDB Local + `sam local start-api`** for integration tests | Runs the real handler in the real Lambda runtime image against a real DynamoDB engine, all for free | LocalStack: emulates API Gateway too, but it's a larger dependency and some features are paid; moto alone doesn't exercise HTTP or the container |
+| **`DYNAMODB_ENDPOINT_URL` declared empty in the template** | `sam local --env-vars` can only override variables the template declares; an empty value keeps boto3's normal endpoint in AWS | A separate local template: two templates that can drift apart |
 
 ## Refactor summary
 
@@ -61,6 +77,8 @@ Kept for compatibility. Changing them changes the API, so they're planned as a s
 
 | Tool | Used for | Version tested |
 | --- | --- | --- |
+| Docker | DynamoDB Local and the local Lambda runtime | 29.9.2 |
+| DynamoDB Local | Local database (`amazon/dynamodb-local`) | 3.3.2 |
 | Python | Runtime and tests | 3.14.6 |
 | AWS SAM CLI | `validate`, `build` | 1.170.0 |
 | cfn-lint | Template linting | 1.58.0 |

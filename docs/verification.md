@@ -19,6 +19,8 @@ Environment as in Milestone 2 (Docker 29.9.2, Python 3.14.6, SAM CLI 1.170.0, Dy
 | Safe logging | SAM log after a request with a private name | One line per request: route, request ID, status (plus error code and internal detail for failures); request body and headers absent |
 | Template | `make verify` | cfn-lint clean, `sam validate --lint` valid, `sam build` succeeded |
 
+**GitHub Actions:** [run 40828145799](https://github.com/davebushiri/aws-serverless-crud-api/actions/runs/40828145799) (manual dispatch, commit `5fc0d7d`, `ubuntu-24.04`, 74 s) succeeded: no AWS credentials, 77 unit tests passed, template valid and built, 19 integration tests passed, cleanup done. The job log has no credentials or tokens; the only AWS host is `public.ecr.aws` (anonymous Lambda image pull).
+
 **Local vs. AWS for this milestone:** responses the Lambda returns are the same in both (the Lambda builds the full proxy response). Requests that never reach the Lambda (unknown method/path) get `403` from sam local and, per AWS docs, `404` from API Gateway; neither uses the v2 format. Throttling (`429` from API Gateway) isn't emulated locally. DynamoDB throttling (`503`) is covered only by unit tests, because DynamoDB Local doesn't throttle.
 
 ## Milestone 2: local end-to-end (verified; historical, contract v1)

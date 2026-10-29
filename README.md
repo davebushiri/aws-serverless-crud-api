@@ -6,7 +6,7 @@ A serverless CRUD API for items: **Amazon API Gateway HTTP API → AWS Lambda (P
 
 It started as the AWS tutorial "Build a CRUD API with Lambda and DynamoDB", which was built by hand in the console. This repository makes it reproducible from code, separates the handler from the business logic, scopes IAM to least privilege, and verifies the refactor against the original code.
 
-> **Status:** Milestone 4. API contract v2 with input validation and consistent JSON errors, verified end to end on your machine (HTTP → `sam local start-api` → Lambda container → DynamoDB Local) locally. Nothing has been deployed or tested in AWS. See [docs/verification.md](docs/verification.md).
+> **Status:** Milestone 4. API contract v2 with input validation and consistent JSON errors, verified end to end on your machine (HTTP → `sam local start-api` → Lambda container → DynamoDB Local) locally and in GitHub Actions. Nothing has been deployed or tested in AWS. See [docs/verification.md](docs/verification.md).
 
 ## API
 

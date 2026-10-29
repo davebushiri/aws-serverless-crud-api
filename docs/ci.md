@@ -42,6 +42,24 @@ GitHub bills private-repository Actions usage per minute beyond the plan's inclu
 
 With a $0 stop-usage budget, runs stop once the included minutes are used up, instead of being billed.
 
+## Verified run
+
+[Run 40825291736](https://github.com/davebushiri/aws-serverless-crud-api/actions/runs/40825291736): `workflow_dispatch` on commit `9e7d255`, **success**, job duration 72 s on `ubuntu-24.04`.
+
+| Step | Result |
+| --- | --- |
+| Docker | client and server 28.0.4 available |
+| `make install` | 90 locked packages installed with hashes verified; CPython 3.14.9 from setup-python |
+| Credentials check | `AWS credentials: none` |
+| Unit tests | 17 passed |
+| cfn-lint / `sam validate --lint` / `sam build` | clean / valid / succeeded |
+| Integration tests (`make local-test`) | 10 passed, 4 `LegacyUnhandledError` warnings (the known crash cases) |
+| Cleanup | DynamoDB Local container and network removed; no leftover containers |
+| Failure artifacts | skipped (upload runs only on failure) |
+| Job log scan | no credentials or tokens; the only AWS host is `public.ecr.aws` (anonymous Lambda image pull) |
+
+Before pushing, the same steps were rehearsed locally in a clean clone. Three deliberate breakages confirmed the checks fail when they should: a behavior change failed `make verify` and `make local-test`; a startup failure (port taken) failed and still removed all containers; and the crash assertion rejected 5 malformed responses.
+
 ## Running CI
 
 - **GitHub UI:** Actions → **CI** → **Run workflow** → branch `main`.

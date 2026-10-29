@@ -1,5 +1,7 @@
 # Items CRUD API (AWS SAM)
 
+[![CI](https://github.com/davebushiri/aws-serverless-crud-api/actions/workflows/ci.yml/badge.svg)](https://github.com/davebushiri/aws-serverless-crud-api/actions/workflows/ci.yml)
+
 A serverless CRUD API for items: **Amazon API Gateway HTTP API → AWS Lambda (Python 3.14) → Amazon DynamoDB**, defined as infrastructure as code with AWS SAM.
 
 It started as the AWS tutorial "Build a CRUD API with Lambda and DynamoDB", which was built by hand in the console. This repository makes it reproducible from code, separates the handler from the business logic, scopes IAM to least privilege, and verifies the refactor against the original code.

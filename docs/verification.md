@@ -68,7 +68,7 @@ Recorded during this milestone. The tests accept both behaviors.
 
 ## Milestone 3: CI
 
-See [ci.md](ci.md). Results of the GitHub-hosted run are recorded there once it has run.
+Verified on GitHub-hosted `ubuntu-24.04`: [run 40825291736](https://github.com/davebushiri/aws-serverless-crud-api/actions/runs/40825291736) succeeded with 17 unit and 10 integration tests passing and no AWS credentials. Details in [ci.md](ci.md).
 
 ## Planned
 
